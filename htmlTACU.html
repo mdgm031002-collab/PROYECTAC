@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente Visual IA</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#000;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+}
+
+#contenedor{
+    position:relative;
+    width:100vw;
+    height:100vh;
+}
+
+video{
+    position:absolute;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+canvas{
+    position:absolute;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+}
+
+#panel{
+    position:absolute;
+    top:10px;
+    left:10px;
+    z-index:1000;
+}
+
+#btnIniciar{
+    padding:12px 20px;
+    border:none;
+    border-radius:10px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+#estado{
+    margin-top:10px;
+    color:white;
+    background:rgba(0,0,0,.75);
+    padding:10px;
+    border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="contenedor">
+
+    <video id="video" autoplay playsinline muted></video>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="panel">
+        <button id="btnIniciar">Iniciar Sistema</button>
+        <div id="estado">Esperando inicio...</div>
+    </div>
+
+</div>
+
+<script>
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const estado = document.getElementById("estado");
+
+let modelo = null;
+
+// ==========================================
+// CONTROL DE VOZ Y VARIABLES GLOBALES
+// ==========================================
+let ultimaFrase = "";
+let ultimoAviso = 0;
+
+// "Despertador" automático para inicializar la API de voz en segundo plano
+setTimeout(() => {
+    if (typeof speechSynthesis !== "undefined") {
+        const mensaje = new SpeechSynthesisUtterance("");
+        speechSynthesis.speak(mensaje);
+        speechSynthesis.cancel();
+    }
+}, 1000);
+
+const traducciones = {
+    "person":"persona",
+    "cell phone":"celular",
+    "chair":"silla",
+    "couch":"sofá",
+    "dining table":"mesa",
+    "bottle":"botella",
+    "cup":"vaso",
+    "laptop":"computadora",
+    "keyboard":"teclado",
+    "mouse":"ratón",
+    "tv":"televisión",
+    "remote":"control remoto",
+    "book":"libro",
+    "backpack":"mochila",
+    "handbag":"bolsa",
+    "suitcase":"maleta",
+
+    "dog":"perro",
+    "cat":"gato",
+    "bird":"pájaro",
+    "horse":"caballo",
+
+    "car":"automóvil",
+    "motorcycle":"motocicleta",
+    "bicycle":"bicicleta",
+    "bus":"autobús",
+    "truck":"camión",
+
+    "banana":"plátano",
+    "apple":"manzana",
+    "orange":"naranja",
+    "sandwich":"sándwich",
+
+    "clock":"reloj",
+    "scissors":"tijeras",
+    "toothbrush":"cepillo de dientes"
+};
+
+function traducir(nombre){
+    return traducciones[nombre] || nombre;
+}
+
+// Función hablar optimizada con manejo de excepciones y delays tácticos
+function hablar(texto) {
+    try {
+        if (typeof speechSynthesis === "undefined") {
+            return;
+        }
+
+        const ahora = Date.now();
+
+        // Anti-spam: Evita repetir la misma frase consecutiva antes de 3 segundos
+        if (texto === ultimaFrase && ahora - ultimoAviso < 3000) {
+            return;
+        }
+
+        const mensaje = new SpeechSynthesisUtterance(texto);
+        mensaje.lang = "es-MX";
+        mensaje.rate = 1;
+        mensaje.pitch = 1;
+        mensaje.volume = 1;
+
+        // Limpia cualquier audio en cola que pueda congelar la API
+        speechSynthesis.cancel();
+
+        // Pequeño retraso para dar tiempo a la API a procesar el cancel()
+        setTimeout(() => {
+            speechSynthesis.speak(mensaje);
+        }, 100);
+
+        ultimaFrase = texto;
+        ultimoAviso = ahora;
+
+    } catch (error) {
+        console.error("Error en la síntesis de voz:", error);
+    }
+}
+
+async function iniciarCamara(){
+    const stream =
+        await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+        });
+
+    video.srcObject = stream;
+
+    return new Promise(resolve=>{
+        video.onloadedmetadata = ()=>{
+            video.play();
+            resolve();
+        };
+    });
+}
+
+function vibrar(){
+    if(navigator.vibrate){
+        navigator.vibrate(300);
+    }
+}
+
+function obtenerPosicion(xCentro, ancho){
+    if(xCentro < ancho * 0.33){
+        return "a la izquierda";
+    }
+    if(xCentro > ancho * 0.66){
+        return "a la derecha";
+    }
+    return "al centro";
+}
+
+async function detectar(){
+    if(!modelo){
+        requestAnimationFrame(detectar);
+        return;
+    }
+
+    const objetos = await modelo.detect(video);
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let principal = null;
+
+    objetos.forEach(obj=>{
+        const [x,y,w,h] = obj.bbox;
+        const nombre = traducir(obj.class);
+
+        ctx.strokeStyle = "#00FF00";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.fillStyle = "#00FF00";
+        ctx.font = "20px Arial";
+        ctx.fillText(nombre, x, y > 20 ? y - 5 : 20);
+
+        const area = w * h;
+
+        if(!principal || area > principal.area){
+            principal = {
+                nombre: nombre,
+                area: area,
+                centroX: x + (w/2)
+            };
+        }
+    });
+
+    if(principal){
+        const posicion = obtenerPosicion(principal.centroX, canvas.width);
+        const ahora = Date.now();
+
+        if(ahora - ultimoAviso > 3000){
+            hablar(principal.nombre + " " + posicion);
+        }
+
+        const porcentaje = principal.area / (canvas.width * canvas.height);
+
+        if(porcentaje > 0.25){
+            vibrar();
+            hablar(principal.nombre + " muy cerca");
+        }
+    }
+
+    requestAnimationFrame(detectar);
+}
+
+async function iniciarSistema(){
+    try{
+        estado.textContent = "Abriendo cámara...";
+        await iniciarCamara();
+
+        hablar("Sistema iniciado");
+
+        estado.textContent = "Cargando inteligencia artificial...";
+        modelo = await cocoSsd.load();
+
+        hablar("Sistema listo");
+        estado.textContent = "Detección activa";
+
+        detectar();
+
+    } catch(error){
+        console.error(error);
+        estado.textContent = "Error: " + error.message;
+    }
+}
+
+document.getElementById("btnIniciar").addEventListener("click", iniciarSistema);
+
+</script>
+
+</body>
+</html>
