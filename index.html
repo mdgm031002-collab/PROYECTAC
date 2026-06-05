@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asistente Visual IA Personalizado</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/tm-image@0.8.5/dist/teachablemachine-image.min.js"></script>
 
 <style>
@@ -74,7 +74,7 @@ video{
 </div>
 
 <script>
-// Enlace a tu modelo personalizado de 25 objetos
+// Enlace verificado de tu modelo personalizado de 25 objetos
 const URL_MODELO = "https://teachablemachine.withgoogle.com/models/z892YD6q4/";
 
 const video = document.getElementById("video");
@@ -98,10 +98,8 @@ function hablar(texto) {
         if (typeof speechSynthesis === "undefined" || !texto) return;
 
         const ahora = Date.now();
-        // Evitar spam si es el mismo objeto antes de 3 segundos
         if (texto === ultimaFrase && ahora - ultimoAviso < 3000) return;
 
-        // Si detecta la clase "Fondo" o "Vacío", se queda en silencio
         if (texto.toLowerCase().includes("fondo") || texto.toLowerCase().includes("vacio")) return;
 
         const mensaje = new SpeechSynthesisUtterance(texto);
@@ -151,7 +149,6 @@ async function predict() {
     let mayorProbabilidad = 0;
     let objetoDetectado = "";
 
-    // Analiza cuál de las 25 clases tiene mayor coincidencia en la imagen
     for (let i = 0; i < maxPredictions; i++) {
         if (prediction[i].probability > mayorProbabilidad) {
             mayorProbabilidad = prediction[i].probability;
@@ -159,7 +156,6 @@ async function predict() {
         }
     }
 
-    // Umbral de confianza al 75%
     if (mayorProbabilidad > 0.75) {
         if (objetoDetectado.toLowerCase() !== "fondo" && objetoDetectado.toLowerCase() !== "vacio") {
             estado.textContent = `Detectado: ${objetoDetectado} (${Math.round(mayorProbabilidad * 100)}%)`;
@@ -169,7 +165,6 @@ async function predict() {
                 hablar(objetoDetectado);
             }
             
-            // Si está muy cerca (más del 95% de coincidencia) vibra
             if (mayorProbabilidad > 0.95) {
                 vibrar();
             }
@@ -183,6 +178,11 @@ async function iniciarSistema(){
     try{
         if (typeof speechSynthesis !== "undefined") {
             speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+        }
+
+        // Verificación de seguridad por si las CDN de Google tardaron en responder
+        if (typeof tmImage === "undefined") {
+            throw new Error("La librería de inteligencia artificial aún está descargándose. Por favor, espera 5 segundos y vuelve a presionar el botón.");
         }
 
         estado.textContent = "Iniciando cámara trasera...";
