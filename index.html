@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asistente Visual IA Personalizado</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/tm-image@0.8.5/dist/teachablemachine-image.min.js"></script>
 
 <style>
@@ -69,12 +69,12 @@ video{
     <video id="video" autoplay playsinline muted></video>
     <div id="panel">
         <button id="btnIniciar">Iniciar Sistema</button>
-        <div id="estado">Esperando inicio...</div>
+        <div id="estado">Cargando componentes...</div>
     </div>
 </div>
 
 <script>
-// Enlace verificado de tu modelo personalizado de 25 objetos
+// Tu modelo de 25 objetos
 const URL_MODELO = "https://teachablemachine.withgoogle.com/models/z892YD6q4/";
 
 const video = document.getElementById("video");
@@ -83,6 +83,17 @@ const estado = document.getElementById("estado");
 let model, maxPredictions;
 let ultimaFrase = "";
 let ultimoAviso = 0;
+
+// Verificar carga de librerías al iniciar la página
+window.onload = () => {
+    setTimeout(() => {
+        if (typeof window.tmImage !== "undefined" || typeof tmImage !== "undefined") {
+            estado.textContent = "Sistema listo para iniciar";
+        } else {
+            estado.textContent = "Conectando con la IA de Google...";
+        }
+    }, 500);
+};
 
 // Inicializador de voz en segundo plano
 setTimeout(() => {
@@ -180,9 +191,11 @@ async function iniciarSistema(){
             speechSynthesis.speak(new SpeechSynthesisUtterance(""));
         }
 
-        // Verificación de seguridad por si las CDN de Google tardaron en responder
-        if (typeof tmImage === "undefined") {
-            throw new Error("La librería de inteligencia artificial aún está descargándose. Por favor, espera 5 segundos y vuelve a presionar el botón.");
+        // Buscar la librería de forma global en la ventana del navegador
+        const buscadorTM = window.tmImage || tmImage;
+
+        if (!buscadorTM) {
+            throw new Error("Librerías enlazando... Espera 3 segundos y vuelve a presionar el botón.");
         }
 
         estado.textContent = "Iniciando cámara trasera...";
@@ -193,7 +206,7 @@ async function iniciarSistema(){
         const modelURL = URL_MODELO + "model.json";
         const metadataURL = URL_MODELO + "metadata.json";
 
-        model = await tmImage.load(modelURL, metadataURL);
+        model = await buscadorTM.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
 
         hablar("Sistema listo");
