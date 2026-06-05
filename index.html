@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Asistente Visual IA Personalizado</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/tm-image@0.8.5/dist/teachablemachine-image.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 
 <style>
 *{
@@ -69,31 +68,21 @@ video{
     <video id="video" autoplay playsinline muted></video>
     <div id="panel">
         <button id="btnIniciar">Iniciar Sistema</button>
-        <div id="estado">Cargando componentes...</div>
+        <div id="estado">Sistema listo para iniciar</div>
     </div>
 </div>
 
 <script>
-// Tu modelo de 25 objetos
+// Tu enlace de Teachable Machine
 const URL_MODELO = "https://teachablemachine.withgoogle.com/models/z892YD6q4/";
 
 const video = document.getElementById("video");
 const estado = document.getElementById("estado");
 
-let model, maxPredictions;
+let model;
+let listaClases = [];
 let ultimaFrase = "";
 let ultimoAviso = 0;
-
-// Verificar carga de librerías al iniciar la página
-window.onload = () => {
-    setTimeout(() => {
-        if (typeof window.tmImage !== "undefined" || typeof tmImage !== "undefined") {
-            estado.textContent = "Sistema listo para iniciar";
-        } else {
-            estado.textContent = "Conectando con la IA de Google...";
-        }
-    }, 500);
-};
 
 // Inicializador de voz en segundo plano
 setTimeout(() => {
@@ -155,19 +144,35 @@ async function loop() {
 }
 
 async function predict() {
-    const prediction = await model.predict(video);
-    
-    let mayorProbabilidad = 0;
-    let objetoDetectado = "";
+    if (!model) return;
 
-    for (let i = 0; i < maxPredictions; i++) {
-        if (prediction[i].probability > mayorProbabilidad) {
-            mayorProbabilidad = prediction[i].probability;
-            objetoDetectado = prediction[i].className;
+    // Capturar el cuadro del video de forma matemática pura usando tensores
+    const logits = tf.tidy(() => {
+        // Redimensionar la imagen a 224x224 (el tamaño estándar que requiere Teachable Machine)
+        let img = tf.browser.fromPixels(video);
+        let normalizada = img.resizeNearestNeighbor([224, 224]).toFloat().div(tf.scalar(127.5)).sub(tf.scalar(1));
+        let batched = normalizada.expandDims(0);
+        return model.predict(batched);
+    });
+
+    const valores = await logits.data();
+    logits.dispose();
+
+    let mayorProbabilidad = 0;
+    let indiceGanador = -1;
+
+    // Buscar cuál de tus clases tiene la mayor probabilidad matemática
+    for (let i = 0; i < valores.length; i++) {
+        if (valores[i] > mayorProbabilidad) {
+            mayorProbabilidad = valores[i];
+            indiceGanador = i;
         }
     }
 
-    if (mayorProbabilidad > 0.75) {
+    // Si encontramos un objeto y la IA está segura a más del 75%
+    if (indiceGanador !== -1 && mayorProbabilidad > 0.75) {
+        let objetoDetectado = listaClases[indiceGanador] || "Objeto Desconocido";
+
         if (objetoDetectado.toLowerCase() !== "fondo" && objetoDetectado.toLowerCase() !== "vacio") {
             estado.textContent = `Detectado: ${objetoDetectado} (${Math.round(mayorProbabilidad * 100)}%)`;
             
@@ -191,23 +196,20 @@ async function iniciarSistema(){
             speechSynthesis.speak(new SpeechSynthesisUtterance(""));
         }
 
-        // Buscar la librería de forma global en la ventana del navegador
-        const buscadorTM = window.tmImage || tmImage;
-
-        if (!buscadorTM) {
-            throw new Error("Librerías enlazando... Espera 3 segundos y vuelve a presionar el botón.");
-        }
-
         estado.textContent = "Iniciando cámara trasera...";
         await iniciarCamara();
         hablar("Sistema iniciado");
 
-        estado.textContent = "Cargando tu modelo personalizado...";
-        const modelURL = URL_MODELO + "model.json";
-        const metadataURL = URL_MODELO + "metadata.json";
+        estado.textContent = "Descargando estructura del modelo...";
+        
+        // Descargar el archivo de metadatos para leer las etiquetas de tus 25 objetos automáticamente
+        const respuestaMeta = await fetch(URL_MODELO + "metadata.json");
+        const datosMeta = await respuestaMeta.json();
+        listaClases = datosMeta.labels;
 
-        model = await buscadorTM.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+        estado.textContent = "Cargando Red Neuronal...";
+        // El cargador nativo y ultra estable de TensorFlow directo
+        model = await tf.loadLayersModel(URL_MODELO + "model.json");
 
         hablar("Sistema listo");
         window.requestAnimationFrame(loop);
