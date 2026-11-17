@@ -2,388 +2,276 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080d18">
-  <title>Ojos Digitales</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
-
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      min-height: 100vh;
-      background: #080d18;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-
-    #inicio {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      text-align: center;
-      background: radial-gradient(circle, #123b2c, #080d18 65%);
-      z-index: 5;
-    }
-
-    .contenido {
-      width: 100%;
-      max-width: 430px;
-      padding: 35px 25px;
-      border: 1px solid #00ff78;
-      border-radius: 25px;
-      background: rgba(5, 15, 25, .9);
-      box-shadow: 0 0 35px #00ff7833;
-    }
-
-    .ojo {
-      font-size: 75px;
-      margin-bottom: 15px;
-      color: #00ff78;
-    }
-
-    h1 {
-      font-size: 35px;
-      margin-bottom: 15px;
-      letter-spacing: 2px;
-    }
-
-    h1 span { color: #00ff78; }
-
-    p {
-      color: #b9c5d2;
-      line-height: 1.6;
-      margin-bottom: 25px;
-    }
-
-    button {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 12px;
-      background: #00ff78;
-      color: #001b0c;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: .5;
-    }
-
-    #camara {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: black;
-    }
-
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .panel {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      right: 15px;
-      padding: 15px;
-      border: 1px solid #00ff78;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, .75);
-      text-align: center;
-    }
-
-    #resultado {
-      position: absolute;
-      bottom: 95px;
-      left: 15px;
-      right: 15px;
-      padding: 18px;
-      border: 1px solid #00ff78;
-      border-radius: 15px;
-      background: rgba(0, 0, 0, .8);
-      text-align: center;
-      font-size: 22px;
-      font-weight: bold;
-      display: none;
-    }
-
-    #detener {
-      position: absolute;
-      bottom: 20px;
-      left: 15px;
-      right: 15px;
-      width: calc(100% - 30px);
-      background: #ff4545;
-      color: white;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080d18">
+<title>Ojos Digitales</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.2.2"></script>
+<style>
+:root{--neon:#42ffad;--ink:#050b13}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:#f4fff9;font-family:Inter,"Segoe UI",Arial,sans-serif;min-height:100vh}
+button{font:inherit;cursor:pointer}
+#inicio{position:fixed;inset:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:26px 18px;background:radial-gradient(ellipse at 50% 18%,rgba(27,151,103,.24),transparent 38%),radial-gradient(ellipse at 100% 90%,rgba(29,87,121,.18),transparent 36%),linear-gradient(145deg,#07131b,#03070d 72%);z-index:5}
+#inicio:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.16;background-image:linear-gradient(rgba(91,255,185,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(91,255,185,.12) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 85%)}
+.card{position:relative;width:min(100%,500px);padding:clamp(27px,6vw,46px) clamp(22px,6vw,42px);text-align:center;border:1px solid rgba(108,255,190,.22);border-radius:30px;background:linear-gradient(145deg,rgba(15,35,43,.92),rgba(5,14,23,.96));box-shadow:0 30px 90px rgba(0,0,0,.48),0 0 55px rgba(43,255,166,.09);backdrop-filter:blur(18px)}
+.brandline{display:flex;align-items:center;justify-content:center;gap:9px;color:#a7c9bc;font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase}
+.logo-wrap{width:142px;height:142px;margin:27px auto 25px;position:relative;display:grid;place-items:center;border:1px solid rgba(91,255,180,.35);border-radius:50%;background:radial-gradient(circle,rgba(53,255,169,.14),rgba(53,255,169,.025) 65%);box-shadow:inset 0 0 35px rgba(64,255,174,.08),0 0 48px rgba(64,255,174,.12)}
+.logo-wrap:before,.logo-wrap:after{content:"";position:absolute;border:1px solid rgba(91,255,180,.2);border-radius:50%;inset:-10px}
+.logo-wrap:after{inset:-20px;border-style:dashed;opacity:.55;animation:spin 24s linear infinite}
+.logo{width:88px;height:88px;color:var(--neon);filter:drop-shadow(0 0 15px rgba(66,255,173,.55))}
+@keyframes spin{to{transform:rotate(360deg)}}
+.eyebrow{font-size:10px;letter-spacing:4px;color:var(--neon);font-weight:800;text-transform:uppercase}
+h1{font-size:clamp(35px,9vw,49px);letter-spacing:2px;line-height:1.02;margin:13px 0 14px;font-weight:900}
+h1 span{color:var(--neon)}
+.intro{max-width:370px;margin:0 auto;color:#a9bdb8;font-size:14px;line-height:1.75}
+.intro-lead,.intro-close{display:block;color:#e8fff3;font-weight:800}
+.intro-lead{font-size:16px;margin-bottom:10px}
+.intro-close{font-size:13px;color:var(--neon);margin-top:12px}
+.listen-btn{display:block;width:100%;margin:18px auto 0;padding:12px 14px;border:1px solid rgba(165,255,211,.42);border-radius:12px;background:rgba(165,255,211,.07);color:#caffdf;font-weight:800;font-size:11px;letter-spacing:1px;cursor:pointer}
+.listen-btn:hover,.listen-btn:focus-visible{background:rgba(165,255,211,.15);outline:2px solid var(--neon);outline-offset:3px}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:27px 0 24px}
+.feature{padding:13px 7px;border:1px solid rgba(150,255,210,.12);border-radius:14px;background:rgba(255,255,255,.025);color:#d9eee5;font-size:11px;line-height:1.45}
+.feature b{display:block;color:var(--neon);font-size:19px;margin-bottom:5px}
+.btn{width:100%;border:0;border-radius:14px;padding:17px 18px;background:linear-gradient(100deg,#a5ffd3,#40f5a3);color:#052116;font-weight:900;letter-spacing:1px;box-shadow:0 10px 30px rgba(54,255,166,.2);transition:transform .2s,filter .2s}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.btn:disabled{opacity:.5;cursor:wait}
+.footnote{margin:17px 0 0!important;color:#708c83!important;font-size:10px!important;letter-spacing:.3px}
+#app{display:none;position:fixed;inset:0;background:#000}
+#video{position:absolute;width:100%;height:100%;object-fit:cover}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.top{position:absolute;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;padding:14px 16px;background:rgba(8,19,30,.78);border:1px solid rgba(66,255,173,.4);border-radius:15px;display:flex;justify-content:space-between;gap:12px;backdrop-filter:blur(14px)}
+#estado{font-size:12px;color:#b6c4d5;text-align:right}
+.bottom{position:absolute;bottom:max(15px,env(safe-area-inset-bottom));left:12px;right:12px;display:grid;gap:10px}
+#mensaje{background:rgba(5,17,25,.9);border:1px solid var(--neon);border-radius:15px;padding:16px;text-align:center;font-weight:800;min-height:52px;backdrop-filter:blur(12px)}
+#detener{background:#ef5555;color:white;box-shadow:none}
+#ayuda{font-size:11px;text-align:center;color:#d0d7e2;background:#07101dcc;border-radius:9px;padding:8px}
+@media(max-width:380px){.logo-wrap{width:120px;height:120px}.features{gap:6px}.feature{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.logo-wrap:after{animation:none}.btn{transition:none}}
+</style>
 </head>
-
 <body>
-
-  <!-- PANTALLA DE INICIO -->
-  <section id="inicio">
-    <div class="contenido">
-      <div class="ojo">◉</div>
-
-      <h1>OJOS <span>DIGITALES</span></h1>
-
-      <p>
-        Explora tu entorno mediante inteligencia artificial.
-        Nuestro sistema reconocerá los objetos utilizando la cámara.
-      </p>
-
-      <button id="iniciar">INICIAR EXPERIENCIA</button>
+<section id="inicio">
+  <div class="card">
+    <div class="brandline">APOYO PARA PERSONAS CON DISCAPACIDAD VISUAL</div>
+    <div class="logo-wrap" aria-hidden="true">
+      <svg class="logo" viewBox="0 0 100 100" fill="none">
+        <path d="M7 50S22 24 50 24s43 26 43 26-15 26-43 26S7 50 7 50Z" stroke="currentColor" stroke-width="4.5"/>
+        <circle cx="50" cy="50" r="16" stroke="currentColor" stroke-width="4.5"/>
+        <circle cx="50" cy="50" r="6" fill="currentColor"/>
+        <path d="M50 5v9M50 86v9M5 50h9M86 50h9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      </svg>
     </div>
-  </section>
-
-  <!-- PANTALLA DE CÁMARA -->
-  <section id="camara">
-    <video id="video" autoplay playsinline muted></video>
-
-    <div class="panel">
-      <strong>OJOS DIGITALES</strong>
-      <p id="estado" style="margin:8px 0 0">Preparando sistema...</p>
+    <div class="eyebrow">Sistema de visión inteligente</div>
+    <h1>OJOS <span>DIGITALES</span></h1>
+    <p class="intro">
+      <strong class="intro-lead">Cada espacio tiene algo que contar.</strong>
+      Ojos Digitales utiliza inteligencia artificial para reconocer objetos y elementos del entorno, transformándolos en información por voz que acompaña a las personas con discapacidad visual en el descubrimiento del mundo que las rodea.
+      <strong class="intro-close">Porque la tecnología también puede crear oportunidades para vivir con mayor autonomía.</strong>
+    </p>
+    <button class="listen-btn" id="escucharIntro" type="button" aria-label="Escuchar la descripción de Ojos Digitales">
+      <span aria-hidden="true">♫</span> ESCUCHAR DESCRIPCIÓN
+    </button>
+    <div class="features">
+      <div class="feature"><b>◎</b>Objetos y personas</div>
+      <div class="feature"><b>⌂</b>Espacios y superficies</div>
+      <div class="feature"><b>♫</b>Alertas por voz</div>
     </div>
+    <button class="btn" id="iniciar">INICIAR EXPERIENCIA&nbsp; →</button>
+    <p class="footnote">ACTIVA LA CÁMARA · EXPLORA · ESCUCHA</p>
+  </div>
+</section>
 
-    <div id="resultado" aria-live="polite"></div>
+<main id="app">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+  <div class="top"><strong>OJOS DIGITALES</strong><span id="estado">Preparando modelos...</span></div>
+  <div class="bottom">
+    <div id="mensaje" aria-live="polite">Cargando reconocimiento...</div>
+    <div id="ayuda">Prototipo experimental: no sustituye un bastón, perro guía ni acompañamiento.</div>
+    <button class="btn" id="detener">DETENER SISTEMA</button>
+  </div>
+</main>
 
-    <button id="detener">DETENER SISTEMA</button>
-  </section>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const inicio=$("inicio"), app=$("app"), video=$("video"), estado=$("estado"), mensaje=$("mensaje");
+const canvas=$("overlay"), ctx=canvas.getContext("2d");
 
-  <script>
-    const URL_MODELO =
-      "https://teachablemachine.withgoogle.com/models/z892YD6q4/";
-
-    const inicio = document.getElementById("inicio");
-    const camara = document.getElementById("camara");
-    const video = document.getElementById("video");
-    const estado = document.getElementById("estado");
-    const resultado = document.getElementById("resultado");
-
-    let modelo = null;
-    let etiquetas = [];
-    let stream = null;
-    let activo = false;
-    let procesando = false;
-    let ultimoObjeto = "";
-    let ultimoAviso = 0;
-
-    async function cargarModelo() {
-      await tf.ready();
-
-      const respuesta = await fetch(URL_MODELO + "metadata.json");
-
-      if (!respuesta.ok) {
-        throw new Error("No se pudo cargar la información del modelo.");
-      }
-
-      const metadata = await respuesta.json();
-      etiquetas = metadata.labels;
-
-      if (!etiquetas || etiquetas.length === 0) {
-        throw new Error("El modelo no tiene etiquetas.");
-      }
-
-      modelo = await tf.loadLayersModel(
-        URL_MODELO + "model.json"
-      );
+let stream=null, objetosModelo=null, escenaModelo=null, activo=false, ocupado=false;
+let ultimoAviso="", ultimoHabla=0, ultimoEscena=0, cicloId=null;
+const UMBRAL_OBJETO=0.55;
+const NOMBRES={
+  person:"persona",bicycle:"bicicleta",car:"auto",motorcycle:"motocicleta",bus:"autobús",
+  truck:"camión",traffic_light:"semáforo",fire_hydrant:"hidrante",stop_sign:"señal de alto",
+  bench:"banca",bird:"pájaro",cat:"gato",dog:"perro",horse:"caballo",sheep:"oveja",
+  cow:"vaca",elephant:"elefante",bear:"oso",zebra:"cebra",giraffe:"jirafa",backpack:"mochila",
+  umbrella:"paraguas",handbag:"bolsa",tie:"corbata",suitcase:"maleta", frisbee:"disco",
+  skis:"esquís",snowboard:"tabla de snowboard",sports_ball:"pelota",kite:"cometa",
+  baseball_bat:"bate",baseball_glove:"guante de béisbol",skateboard:"patineta",
+  surfboard:"tabla de surf",tennis_racket:"raqueta",bottle:"botella",wine_glass:"copa",
+  cup:"taza",fork:"tenedor",knife:"cuchillo",spoon:"cuchara",bowl:"tazón",
+  banana:"plátano",apple:"manzana",sandwich:"sándwich",orange:"naranja",broccoli:"brócoli",
+  carrot:"zanahoria",hot_dog:"hot dog",pizza:"pizza",donut:"dona",cake:"pastel",
+  chair:"silla",couch:"sofá",potted_plant:"maceta",bed:"cama",dining_table:"mesa",
+  toilet:"inodoro",tv:"televisión",laptop:"computadora portátil",mouse:"ratón",
+  remote:"control remoto",keyboard:"teclado",cell_phone:"celular",microwave:"microondas",
+  oven:"horno",toaster:"tostadora",sink:"lavabo",refrigerator:"refrigerador",
+  book:"libro",clock:"reloj",vase:"florero",scissors:"tijeras",teddy_bear:"oso de peluche",
+  hair_drier:"secadora",toothbrush:"cepillo de dientes"
+};
+function hablar(texto){
+  if(!("speechSynthesis" in window)) return;
+  const now=Date.now();
+  if(texto===ultimoAviso && now-ultimoHabla<4500) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(texto);u.lang="es-MX";u.rate=1;
+  speechSynthesis.speak(u);ultimoAviso=texto;ultimoHabla=now;
+}
+async function abrirCamara(){
+  if(!navigator.mediaDevices?.getUserMedia) throw new Error("La cámara requiere HTTPS y un navegador compatible.");
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:960},height:{ideal:540}}});
+  video.srcObject=stream;
+  await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=reject;});
+  await video.play();
+  canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+}
+function cerrarCamara(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;}
+async function cargarModelos(){
+  if(!window.tf || !window.cocoSsd || !window.deeplab) throw new Error("No se pudieron cargar las bibliotecas de IA. Revisa tu conexión.");
+  await tf.ready();
+  estado.textContent="Cargando detector de objetos...";
+  objetosModelo=await cocoSsd.load({base:"lite_mobilenet_v2"});
+  estado.textContent="Cargando detector de paredes y pisos...";
+  escenaModelo=await deeplab.load({base:"ade20k",quantizationBytes:2});
+}
+function traducirClase(s){return NOMBRES[s]||s.replaceAll("_"," ");}
+function dibujarObjetos(predicciones){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.lineWidth=Math.max(2,canvas.width/400);
+  ctx.font=`bold ${Math.max(15,canvas.width/55)}px Arial`;
+  for(const p of predicciones){
+    if(p.score<UMBRAL_OBJETO) continue;
+    const [x,y,w,h]=p.bbox;
+    ctx.strokeStyle="#00ff78";ctx.fillStyle="#00ff78";ctx.strokeRect(x,y,w,h);
+    const etiqueta=`${traducirClase(p.class)} ${Math.round(p.score*100)}%`;
+    const tw=ctx.measureText(etiqueta).width+12;
+    ctx.fillRect(x,Math.max(0,y-27),tw,25);ctx.fillStyle="#00150a";
+    ctx.fillText(etiqueta,x+6,Math.max(18,y-9));ctx.fillStyle="#00ff78";
+  }
+}
+function contarZonaCentral(predicciones){
+  const w=canvas.width,h=canvas.height;
+  return predicciones.filter(p=>{
+    if(p.score<UMBRAL_OBJETO)return false;
+    const [x,y,bw,bh]=p.bbox;
+    const cx=x+bw/2, cy=y+bh/2;
+    return cx>w*.30 && cx<w*.70 && cy>h*.30;
+  });
+}
+async function detectarEscena(){
+  const mapa=await escenaModelo.predict(video);
+  const datos=await mapa.data();
+  const shape=mapa.shape;mapa.dispose();
+  const alto=shape[0], ancho=shape[1];
+  const etiquetas=deeplab.getLabels("ade20k");
+  const conteo={};
+  const y0=Math.floor(alto*.25), y1=Math.floor(alto*.90);
+  const x0=Math.floor(ancho*.25), x1=Math.floor(ancho*.75);
+  for(let y=y0;y<y1;y+=2){
+    for(let x=x0;x<x1;x+=2){
+      const id=datos[y*ancho+x];
+      const nombre=etiquetas[id];
+      if(nombre)conteo[nombre]=(conteo[nombre]||0)+1;
     }
-
-    async function iniciarCamara() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("La cámara requiere HTTPS y un navegador compatible.");
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" }
-        }
-      });
-
-      video.srcObject = stream;
-
-      await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve;
-        video.onerror = reject;
-      });
-
-      await video.play();
+  }
+  const total=Object.values(conteo).reduce((a,b)=>a+b,0)||1;
+  return Object.entries(conteo).sort((a,b)=>b[1]-a[1]).map(([nombre,n])=>({nombre,porcentaje:n/total}));
+}
+function fraseEscena(lista){
+  const importantes=lista.filter(x=>x.porcentaje>.08);
+  const nombres=importantes.map(x=>x.nombre);
+  const salida=[];
+  if(nombres.includes("wall"))salida.push("pared");
+  if(nombres.includes("floor"))salida.push("piso");
+  if(nombres.includes("door"))salida.push("puerta");
+  if(nombres.includes("ceiling"))salida.push("techo");
+  if(nombres.includes("windowpane"))salida.push("ventana");
+  return salida;
+}
+async function analizar(){
+  if(!activo||ocupado)return;
+  ocupado=true;
+  try{
+    const preds=await objetosModelo.detect(video,10,UMBRAL_OBJETO);
+    dibujarObjetos(preds);
+    const zona=contarZonaCentral(preds);
+    let frases=[];
+    if(zona.length){
+      const nombres=[...new Set(zona.map(p=>traducirClase(p.class)))];
+      frases.push("Objeto en la zona central: "+nombres.slice(0,2).join(" y "));
     }
-
-    async function iniciarSistema() {
-      const boton = document.getElementById("iniciar");
-      boton.disabled = true;
-      boton.textContent = "INICIANDO...";
-
-      try {
-        inicio.style.display = "none";
-        camara.style.display = "block";
-
-        estado.textContent = "Activando cámara...";
-        await iniciarCamara();
-
-        estado.textContent = "Cargando inteligencia artificial...";
-        await cargarModelo();
-
-        activo = true;
-        estado.textContent = "Sistema activo";
-        reconocer();
-
-        hablar("Ojos Digitales está listo.");
-      } catch (error) {
-        console.error(error);
-        detenerCamara();
-
-        camara.style.display = "none";
-        inicio.style.display = "flex";
-
-        boton.disabled = false;
-        boton.textContent = "INTENTAR DE NUEVO";
-
-        alert(error.message || "No se pudo iniciar el sistema.");
-      }
+    if(Date.now()-ultimoEscena>1800){
+      ultimoEscena=Date.now();
+      const escena=await detectarEscena();
+      const elementos=fraseEscena(escena);
+      if(elementos.length) frases.push("En el entorno se identifica "+elementos.join(", "));
     }
-
-    function hablar(texto) {
-      if (!("speechSynthesis" in window)) return;
-
-      speechSynthesis.cancel();
-
-      const voz = new SpeechSynthesisUtterance(texto);
-      voz.lang = "es-MX";
-      voz.rate = 1;
-
-      speechSynthesis.speak(voz);
+    if(frases.length){
+      mensaje.textContent=frases.join(". ");
+      estado.textContent="Entorno analizado";
+      hablar(frases[0]);
+    }else{
+      mensaje.textContent="Analizando el entorno...";
+      estado.textContent="Buscando objetos y superficies";
     }
-
-    async function reconocer() {
-      if (!activo || procesando) return;
-
-      if (video.readyState < 2) {
-        requestAnimationFrame(reconocer);
-        return;
-      }
-
-      procesando = true;
-
-      try {
-        const entrada = tf.tidy(() => {
-          return tf.browser.fromPixels(video)
-            .resizeBilinear([224, 224])
-            .toFloat()
-            .div(127.5)
-            .sub(1)
-            .expandDims(0);
-        });
-
-        const prediccion = modelo.predict(entrada);
-        const datos = await prediccion.data();
-
-        entrada.dispose();
-        prediccion.dispose();
-
-        let indice = 0;
-
-        for (let i = 1; i < datos.length; i++) {
-          if (datos[i] > datos[indice]) {
-            indice = i;
-          }
-        }
-
-        const confianza = datos[indice];
-        const objeto = etiquetas[indice];
-
-        if (
-          confianza >= 0.75 &&
-          !["fondo", "background", "vacio", "vacío"]
-            .includes(objeto.toLowerCase())
-        ) {
-          resultado.style.display = "block";
-
-          resultado.textContent =
-            objeto.toUpperCase() +
-            " · " +
-            Math.round(confianza * 100) +
-            "%";
-
-          estado.textContent = "Objeto identificado";
-
-          const ahora = Date.now();
-
-          if (
-            objeto !== ultimoObjeto ||
-            ahora - ultimoAviso > 4000
-          ) {
-            hablar(objeto);
-            ultimoObjeto = objeto;
-            ultimoAviso = ahora;
-          }
-
-        } else {
-          resultado.style.display = "none";
-          estado.textContent = "Analizando entorno...";
-        }
-
-      } catch (error) {
-        console.error("Error de reconocimiento:", error);
-        estado.textContent = "Error al analizar imagen";
-      } finally {
-        procesando = false;
-      }
-
-      if (activo) {
-        requestAnimationFrame(reconocer);
-      }
-    }
-
-    function detenerCamara() {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-      }
-
-      video.srcObject = null;
-    }
-
-    function detenerSistema() {
-      activo = false;
-      detenerCamara();
-
-      if ("speechSynthesis" in window) {
-        speechSynthesis.cancel();
-      }
-
-      camara.style.display = "none";
-      inicio.style.display = "flex";
-
-      resultado.style.display = "none";
-
-      const boton = document.getElementById("iniciar");
-      boton.disabled = false;
-      boton.textContent = "INICIAR EXPERIENCIA";
-    }
-
-    document.getElementById("iniciar")
-      .addEventListener("click", iniciarSistema);
-
-    document.getElementById("detener")
-      .addEventListener("click", detenerSistema);
-
-    window.addEventListener("pagehide", detenerCamara);
-  </script>
-
+  }catch(e){
+    console.error(e);estado.textContent="Error en el análisis";mensaje.textContent="No se pudo analizar esta imagen.";
+  }finally{
+    ocupado=false;
+    if(activo)cicloId=setTimeout(analizar,250);
+  }
+}
+async function iniciar(){
+  $("iniciar").disabled=true;$("iniciar").textContent="INICIANDO...";
+  try{
+    inicio.style.display="none";app.style.display="block";
+    await abrirCamara();await cargarModelos();
+    activo=true;estado.textContent="Sistema activo";
+    mensaje.textContent="Reconocimiento iniciado";hablar("Ojos Digitales está listo. Analizando el entorno.");
+    analizar();
+  }catch(e){
+    console.error(e);cerrarCamara();app.style.display="none";inicio.style.display="flex";
+    $("iniciar").disabled=false;$("iniciar").textContent="INTENTAR DE NUEVO";
+    alert(e.message||"No se pudo iniciar el sistema.");
+  }
+}
+function detener(){
+  activo=false;if(cicloId)clearTimeout(cicloId);cerrarCamara();
+  if("speechSynthesis"in window)speechSynthesis.cancel();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  app.style.display="none";inicio.style.display="flex";
+  $("iniciar").disabled=false;$("iniciar").textContent="INICIAR EXPERIENCIA";
+}
+$("escucharIntro").addEventListener("click",()=>{
+  const descripcion = "Cada espacio tiene algo que contar. Ojos Digitales utiliza inteligencia artificial para reconocer objetos y elementos del entorno, transformándolos en información por voz que acompaña a las personas con discapacidad visual en el descubrimiento del mundo que las rodea. Porque la tecnología también puede crear oportunidades para vivir con mayor autonomía.";
+  if(!("speechSynthesis" in window)){
+    alert("Tu navegador no admite la lectura por voz. Prueba con Chrome o Edge actualizado.");
+    return;
+  }
+  speechSynthesis.cancel();
+  const voz = new SpeechSynthesisUtterance(descripcion);
+  voz.lang = "es-MX";
+  voz.rate = 0.92;
+  voz.pitch = 1;
+  speechSynthesis.speak(voz);
+});
+$("iniciar").addEventListener("click",iniciar);
+$("detener").addEventListener("click",detener);
+window.addEventListener("pagehide",cerrarCamara);
+</script>
 </body>
 </html>
-
